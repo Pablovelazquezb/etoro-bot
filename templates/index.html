@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>eToro AlgoTrader Dashboard</title>
+    <!-- Fonts & Icons -->
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/icon?family=Material+Icons+Round" rel="stylesheet">
+    <!-- Style Sheets -->
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+    <div class="app-container">
+        <!-- Sidebar Navigation -->
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <span class="material-icons-round logo-icon">insights</span>
+                <span class="logo-text">Algo<span>Trader</span></span>
+            </div>
+            
+            <nav class="sidebar-nav">
+                <a href="#" class="nav-item active" id="nav-dashboard">
+                    <span class="material-icons-round">dashboard</span>
+                    <span>Dashboard</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-manual-trade">
+                    <span class="material-icons-round">swap_horizontal_circle</span>
+                    <span>Trading Manual</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-config">
+                    <span class="material-icons-round">settings</span>
+                    <span>Configuración</span>
+                </a>
+                <a href="#" class="nav-item" id="nav-logs">
+                    <span class="material-icons-round">terminal</span>
+                    <span>Terminal Logs</span>
+                </a>
+            </nav>
+
+            <div class="sidebar-footer">
+                <div class="env-badge" id="env-badge-container">
+                    <span class="env-dot"></span>
+                    <span id="env-text">DEMO MODE</span>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <header class="main-header">
+                <div class="header-title-wrapper">
+                    <h1 id="header-main-title">Panel de Control General</h1>
+                    <p class="header-subtitle" id="header-sub-title">Monitoreo de algoritmo de trading en tiempo real.</p>
+                </div>
+                
+                <div class="header-actions">
+                    <div class="status-indicator-card">
+                        <span class="status-label">Bot Status:</span>
+                        <div class="status-indicator inactive" id="bot-status-indicator">
+                            <span class="status-pulse"></span>
+                            <span id="bot-status-text">Inactivo</span>
+                        </div>
+                    </div>
+                </div>
+            </header>
+
+            <!-- Metrics row -->
+            <section class="metrics-grid">
+                <div class="metric-card glass">
+                    <div class="metric-header">
+                        <span class="metric-title">Balance Disponible</span>
+                        <span class="material-icons-round metric-icon">account_balance_wallet</span>
+                    </div>
+                    <div class="metric-value" id="val-credit">$0.00</div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext">Fondos libres para operar</span>
+                    </div>
+                </div>
+
+                <div class="metric-card glass">
+                    <div class="metric-header">
+                        <span class="metric-title">Valor Total (Equity)</span>
+                        <span class="material-icons-round metric-icon">monetization_on</span>
+                    </div>
+                    <div class="metric-value" id="val-equity">$0.00</div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext">Capital total neto de la cuenta</span>
+                    </div>
+                </div>
+
+                <div class="metric-card glass" id="pnl-metric-card">
+                    <div class="metric-header">
+                        <span class="metric-title">PnL Abierto</span>
+                        <span class="material-icons-round metric-icon" id="pnl-icon">trending_flat</span>
+                    </div>
+                    <div class="metric-value pnl-neutral" id="val-pnl">$0.00</div>
+                    <div class="metric-footer">
+                        <span class="metric-subtext" id="val-pnl-percent">0.00% de retorno</span>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Mid Section split: Left (Portfolio Table), Right (Controls/Forms) -->
+            <div class="content-split-grid">
+                
+                <!-- Left: Open positions -->
+                <section class="panel-card glass pos-panel">
+                    <div class="panel-header">
+                        <div class="panel-title-wrapper">
+                            <span class="material-icons-round text-blue">view_list</span>
+                            <h2>Posiciones Abiertas</h2>
+                        </div>
+                        <button class="btn btn-secondary btn-icon" id="btn-refresh-portfolio">
+                            <span class="material-icons-round">refresh</span>
+                        </button>
+                    </div>
+
+                    <div class="table-container">
+                        <table class="data-table" id="table-positions">
+                            <thead>
+                                <tr>
+                                    <th>Activo</th>
+                                    <th>Operación</th>
+                                    <th>Monto</th>
+                                    <th>Apalanc.</th>
+                                    <th>Precio Compra</th>
+                                    <th>Precio Actual</th>
+                                    <th>Retorno (PnL)</th>
+                                    <th>Acción</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Dinámico -->
+                                <tr class="table-empty">
+                                    <td colspan="8">Cargando portafolio o sin posiciones abiertas...</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+
+                <!-- Right: Control / Forms -->
+                <section class="panel-card glass controls-panel" id="right-form-panel">
+                    <!-- Dynamic form based on selected tab -->
+                    <div id="panel-bot-config" class="form-view">
+                        <div class="panel-header">
+                            <div class="panel-title-wrapper">
+                                <span class="material-icons-round text-green">smart_toy</span>
+                                <h2>Configuración del Bot</h2>
+                            </div>
+                        </div>
+
+                        <div class="bot-control-hero">
+                            <div class="bot-switch-container">
+                                <span class="bot-switch-label">Ejecución del Algoritmo</span>
+                                <button class="btn btn-primary btn-large" id="btn-toggle-bot">
+                                    <span class="material-icons-round">play_arrow</span>
+                                    <span>Iniciar Bot</span>
+                                </button>
+                            </div>
+                        </div>
+
+                        <form id="form-bot-settings" class="settings-form">
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="input-strategy">Estrategia Técnica</label>
+                                    <select id="input-strategy" name="strategy" class="form-select">
+                                        <option value="rsi">RSI (Índice de Fuerza Relativa)</option>
+                                        <option value="sma_cross">Cruce de Medias Móviles (SMA 9/21)</option>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label for="input-candle-interval">Intervalo de Velas</label>
+                                    <select id="input-candle-interval" name="candle_interval" class="form-select">
+                                        <option value="FiveMinutes">5 Minutos</option>
+                                        <option value="FifteenMinutes">15 Minutos</option>
+                                        <option value="OneHour">1 Hora</option>
+                                        <option value="OneDay">1 Día</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="input-amount">Monto por Operación ($)</label>
+                                    <input type="number" id="input-amount" name="amount_per_trade" class="form-input" min="10" placeholder="100">
+                                </div>
+                                <div class="form-group">
+                                    <label for="input-leverage">Apalancamiento</label>
+                                    <select id="input-leverage" name="leverage" class="form-select">
+                                        <option value="1">1x (Sin apalancamiento)</option>
+                                        <option value="2">2x</option>
+                                        <option value="5">5x</option>
+                                        <option value="10">10x</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="input-interval">Frecuencia de Evaluación (segundos)</label>
+                                    <input type="number" id="input-interval" name="interval" class="form-input" min="10" placeholder="300">
+                                </div>
+                            </div>
+
+                            <div class="form-group">
+                                <label for="input-symbols">Símbolos Activos (Separados por coma)</label>
+                                <input type="text" id="input-symbols" name="symbols" class="form-input" placeholder="BTC, AAPL, ETH, TSLA">
+                                <span class="input-helper">Símbolos que el algoritmo analizará y operará automáticamente.</span>
+                            </div>
+
+                            <button type="submit" class="btn btn-secondary btn-full" id="btn-save-settings">
+                                <span class="material-icons-round">save</span>
+                                <span>Guardar Configuración</span>
+                            </button>
+                        </form>
+                    </div>
+
+                    <!-- Manual Trade view (Hidden by default, switched by JS) -->
+                    <div id="panel-manual-trade" class="form-view hidden">
+                        <div class="panel-header">
+                            <div class="panel-title-wrapper">
+                                <span class="material-icons-round text-orange">swap_calls</span>
+                                <h2>Orden de Compra Manual</h2>
+                            </div>
+                        </div>
+
+                        <form id="form-manual-trade" class="settings-form">
+                            <div class="form-group">
+                                <label for="manual-symbol">Símbolo del Activo</label>
+                                <div class="search-input-group">
+                                    <input type="text" id="manual-symbol" class="form-input" placeholder="Ej. BTC, AAPL, ETH" required>
+                                    <button type="button" class="btn btn-secondary" id="btn-verify-symbol">Verificar</button>
+                                </div>
+                                <span class="input-helper" id="symbol-verify-status">Ingresa un símbolo para verificar su InstrumentID.</span>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="manual-amount">Monto a Invertir (USD)</label>
+                                    <input type="number" id="manual-amount" class="form-input" placeholder="Monto en USD (mín. $50)" min="50" required>
+                                </div>
+                                <div class="form-group">
+                                    <label for="manual-leverage">Apalancamiento</label>
+                                    <select id="manual-leverage" class="form-select">
+                                        <option value="1">1x (Sin apalancamiento)</option>
+                                        <option value="2">2x</option>
+                                        <option value="5">5x</option>
+                                        <option value="10">10x</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label for="manual-direction">Dirección</label>
+                                    <select id="manual-direction" class="form-select">
+                                        <option value="buy">COMPRA (Long / Alza)</option>
+                                        <option value="sell">VENTA CORTA (Short / Baja)</option>
+                                    </select>
+                                </div>
+                            </div>
+
+                            <button type="submit" class="btn btn-orange btn-full" id="btn-submit-manual-trade">
+                                <span class="material-icons-round">shopping_cart</span>
+                                <span>Ejecutar Orden en Mercado</span>
+                            </button>
+                        </form>
+                    </div>
+                </section>
+            </div>
+
+            <!-- Bottom: Live Logs Terminal -->
+            <section class="panel-card glass logs-panel">
+                <div class="panel-header">
+                    <div class="panel-title-wrapper">
+                        <span class="material-icons-round text-terminal">terminal</span>
+                        <h2>Terminal de Actividad del Bot</h2>
+                    </div>
+                    <div class="panel-actions">
+                        <span class="auto-refresh-label">Actualizar cada 3s</span>
+                        <button class="btn btn-secondary btn-icon" id="btn-refresh-logs">
+                            <span class="material-icons-round">refresh</span>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="terminal-container">
+                    <pre class="terminal-body" id="logs-output">Cargando registros del sistema...</pre>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <!-- Script file -->
+    <script src="/static/js/app.js"></script>
+</body>
+</html>
