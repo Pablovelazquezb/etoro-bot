@@ -237,13 +237,34 @@ document.addEventListener('DOMContentLoaded', () => {
     // Guardar Configuración del Bot
     formBotSettings.addEventListener('submit', async (e) => {
         e.preventDefault();
+        
+        const amountPerTrade = parseFloat(inputAmount.value);
+        const interval = parseInt(inputInterval.value);
+        const symbols = inputSymbols.value.split(',').map(s => s.trim()).filter(Boolean);
+
+        // Validaciones del cliente
+        if (isNaN(amountPerTrade) || amountPerTrade < 50.0) {
+            showToast("Monto inválido. El monto mínimo por operación es de $50.00 USD reales.", "error");
+            return;
+        }
+
+        if (isNaN(interval) || interval < 10) {
+            showToast("Intervalo inválido. La frecuencia mínima de evaluación es de 10 segundos.", "error");
+            return;
+        }
+
+        if (symbols.length === 0) {
+            showToast("Debes ingresar al menos un símbolo activo.", "error");
+            return;
+        }
+
         const payload = {
             strategy: inputStrategy.value,
             candle_interval: inputCandleInterval.value,
-            amount_per_trade: parseFloat(inputAmount.value),
+            amount_per_trade: amountPerTrade,
             leverage: parseInt(inputLeverage.value),
-            interval: parseInt(inputInterval.value),
-            symbols: inputSymbols.value.split(',').map(s => s.trim()).filter(Boolean)
+            interval: interval,
+            symbols: symbols
         };
 
         try {
@@ -440,6 +461,19 @@ document.addEventListener('DOMContentLoaded', () => {
         const leverage = parseInt(manualLeverage.value);
         const transaction = manualDirection.value;
         const dirText = transaction === 'buy' ? 'COMPRA' : 'VENTA CORTA';
+
+        // Validaciones del cliente
+        if (isNaN(amount) || amount < 50.0) {
+            showToast("Monto inválido. El monto mínimo por operación en eToro es de $50.00 USD reales.", "error");
+            return;
+        }
+
+        const creditText = valCredit.textContent.replace(/[^0-9.]/g, '');
+        const availableCredit = parseFloat(creditText) || 0.0;
+        if (amount > availableCredit) {
+            showToast(`Saldo insuficiente. Tu balance real disponible es de $${availableCredit.toFixed(2)} USD.`, "error");
+            return;
+        }
 
         if (confirm(`¿Deseas enviar una orden de mercado real para ${dirText} ${symbol} por un valor de $${amount} USD?`)) {
             const btnSubmit = document.getElementById('btn-submit-manual-trade');

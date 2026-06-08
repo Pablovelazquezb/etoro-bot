@@ -23,31 +23,69 @@ def get_status():
         "strategy": bot_instance.strategy,
         "interval": bot_instance.interval,
         "symbols": bot_instance.symbols,
-        "amount_per_trade": bot_instance.amount_per_trade,
+        "amount_per_trade": bot_instance.amount_per_trade * bot_instance.scale_factor,
         "leverage": bot_instance.leverage,
         "candle_interval": bot_instance.candle_interval
     })
 
 @app.route("/api/status/update", methods=["POST"])
 def update_status():
-    """Actualiza la configuración del bot en caliente."""
+    """Actualiza la configuración del bot en caliente con validaciones rigurosas."""
     data = request.json or {}
     
+    # 1. Validar Monto por Operación si viene en los datos
+    if "amount_per_trade" in data:
+        try:
+            amount_val = float(data["amount_per_trade"])
+            if amount_val < 50.0:
+                return jsonify({"error": "El monto mínimo por operación permitido es de $50.00 USD reales."}), 400
+                
+            # Validar contra balance real disponible
+            portfolio = bot_instance.client.get_portfolio()
+            if portfolio:
+                credit = portfolio.get("clientPortfolio", {}).get("credit", 0.0)
+                real_credit = credit * bot_instance.scale_factor
+                if amount_val > real_credit:
+                    return jsonify({"error": f"Monto inválido: ${amount_val:.2f} USD excede tu balance real disponible (${real_credit:.2f} USD)."}), 400
+            
+            bot_instance.amount_per_trade = amount_val / bot_instance.scale_factor
+        except ValueError:
+            return jsonify({"error": "El monto por operación debe ser un número válido."}), 400
+
+    # 2. Validar Símbolos Activos
     if "symbols" in data:
-        # Convertir a lista limpia de símbolos en mayúscula
-        bot_instance.symbols = [s.strip().upper() for s in data["symbols"] if s.strip()]
+        symbols_list = [s.strip().upper() for s in data["symbols"] if s.strip()]
+        if not symbols_list:
+            return jsonify({"error": "Debes configurar al menos un símbolo activo."}), 400
+            
+        invalid_symbols = []
+        for sym in symbols_list:
+            try:
+                bot_instance.client.resolve_symbol(sym)
+            except Exception:
+                invalid_symbols.append(sym)
+        if invalid_symbols:
+            return jsonify({"error": f"Los siguientes símbolos no existen o no están disponibles en eToro: {', '.join(invalid_symbols)}"}), 400
+            
+        bot_instance.symbols = symbols_list
+
+    # 3. Otras configuraciones
     if "strategy" in data:
         bot_instance.strategy = data["strategy"]
     if "interval" in data:
-        bot_instance.interval = int(data["interval"])
-    if "amount_per_trade" in data:
-        bot_instance.amount_per_trade = float(data["amount_per_trade"])
+        try:
+            interval_val = int(data["interval"])
+            if interval_val < 10:
+                return jsonify({"error": "El intervalo de evaluación no puede ser menor a 10 segundos."}), 400
+            bot_instance.interval = interval_val
+        except ValueError:
+            return jsonify({"error": "El intervalo debe ser un número entero."}), 400
     if "leverage" in data:
         bot_instance.leverage = int(data["leverage"])
     if "candle_interval" in data:
         bot_instance.candle_interval = data["candle_interval"]
 
-    bot_instance.log("Configuración del Bot actualizada vía Dashboard.")
+    bot_instance.log("Configuración del Bot actualizada vía Dashboard con validación exitosa.")
     return jsonify({"success": True, "message": "Configuración actualizada correctamente."})
 
 @app.route("/api/bot/start", methods=["POST"])
@@ -67,6 +105,7 @@ def get_portfolio():
     """
     Obtiene el portafolio actual de eToro enriquecido con metadata
     (símbolos) y tasas actuales del mercado (PnL en vivo).
+    Todos los balances y montos se escalan al balance real del usuario.
     """
     portfolio = bot_instance.client.get_portfolio()
     if not portfolio:
@@ -79,7 +118,7 @@ def get_portfolio():
     # Si no hay posiciones abiertas, retornamos vacío de inmediato
     if not raw_positions:
         return jsonify({
-            "credit": credit,
+            "credit": credit * bot_instance.scale_factor,
             "positions": []
         })
 
@@ -124,8 +163,6 @@ def get_portfolio():
             pnl_per_unit = open_rate - current_rate
 
         # El PnL real debe escalarse por apalancamiento y tipo de cambio
-        # eToro usualmente maneja las posiciones en dólares.
-        # Una estimación directa del PnL en dólares:
         pnl = units * pnl_per_unit * pos.get("leverage", 1.0)
         current_value = initial_invest + pnl
         total_equity += current_value
@@ -140,40 +177,65 @@ def get_portfolio():
             "openDateTime": pos.get("openDateTime"),
             "openRate": open_rate,
             "currentRate": current_rate,
-            "amount": initial_invest,
+            "amount": initial_invest * bot_instance.scale_factor,
             "units": units,
-            "currentValue": current_value,
-            "pnl": pnl,
+            "currentValue": current_value * bot_instance.scale_factor,
+            "pnl": pnl * bot_instance.scale_factor,
             "pnlPercent": (pnl / initial_invest * 100) if initial_invest > 0 else 0
         })
 
     return jsonify({
-        "credit": credit,
-        "equity": total_equity,
+        "credit": credit * bot_instance.scale_factor,
+        "equity": total_equity * bot_instance.scale_factor,
         "positions": enriched_positions
     })
 
 @app.route("/api/trade", methods=["POST"])
 def execute_trade():
-    """Ejecuta una orden de trading manual."""
+    """Ejecuta una orden de trading manual con validaciones de seguridad."""
     data = request.json or {}
-    symbol = data.get("symbol")
+    symbol = data.get("symbol", "").strip().upper()
     amount = data.get("amount")
     transaction = data.get("transaction", "buy")
     leverage = data.get("leverage", 1)
 
-    if not symbol or not amount:
-        return jsonify({"error": "Símbolo y monto son requeridos"}), 400
+    if not symbol or amount is None:
+        return jsonify({"error": "El símbolo y el monto son obligatorios."}), 400
 
     try:
+        real_amount = float(amount)
+        if real_amount < 50.0:
+            return jsonify({"error": "El monto mínimo de inversión permitido es de $50.00 USD reales."}), 400
+
+        # Validar contra balance real disponible
+        portfolio = bot_instance.client.get_portfolio()
+        if not portfolio:
+            return jsonify({"error": "No se pudo conectar a eToro para verificar tu balance disponible."}), 500
+        
+        credit = portfolio.get("clientPortfolio", {}).get("credit", 0.0)
+        real_credit = credit * bot_instance.scale_factor
+        if real_amount > real_credit:
+            return jsonify({"error": f"Saldo insuficiente. Intentas invertir ${real_amount:.2f} USD pero tu balance real es de ${real_credit:.2f} USD."}), 400
+
+        # Validar si el símbolo es válido en eToro
+        try:
+            bot_instance.client.resolve_symbol(symbol)
+        except Exception:
+            return jsonify({"error": f"El activo '{symbol}' no existe o no está habilitado para operar en eToro."}), 400
+
+        # Escalar el monto real a la escala virtual para la API de eToro
+        virtual_amount = real_amount / bot_instance.scale_factor
+
         res = bot_instance.client.create_order(
             symbol=symbol,
-            amount=float(amount),
+            amount=virtual_amount,
             transaction=transaction,
             leverage=int(leverage)
         )
-        bot_instance.log(f"Orden manual colocada: {transaction.upper()} {symbol} por ${amount} USD.")
+        bot_instance.log(f"Orden manual colocada: {transaction.upper()} {symbol} por ${real_amount:.2f} USD reales (Virtual: ${virtual_amount:.2f}).")
         return jsonify({"success": True, "result": res})
+    except ValueError:
+        return jsonify({"error": "El monto especificado debe ser un valor numérico válido."}), 400
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 

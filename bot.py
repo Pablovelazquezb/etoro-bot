@@ -1,3 +1,4 @@
+import os
 import time
 import threading
 import datetime
@@ -11,7 +12,15 @@ class TradingBot:
         self.symbols = ["BTC", "AAPL", "ETH", "TSLA"]
         self.strategy = "rsi"  # "rsi" o "sma_cross"
         self.interval = 300    # segundos (ej. 5 minutos)
-        self.amount_per_trade = 100  # USD
+        
+        # Cargar factor de escala para mostrar balance real al usuario
+        real_balance = float(os.getenv("ETORO_REAL_BALANCE", "250.0"))
+        self.scale_factor = real_balance / 10000.0
+        
+        # El bot opera internamente en la escala virtual (10,000 USD)
+        # Por defecto, $50 USD reales equivale a $2000 USD virtuales.
+        self.amount_per_trade = 50.0 / self.scale_factor  # 2000.0
+        
         self.leverage = 1
         self.candle_interval = "OneHour"
         
@@ -71,6 +80,11 @@ class TradingBot:
 
     def run_iteration(self):
         """Ejecuta una iteración de análisis y decisiones de trading."""
+        real_amt = self.amount_per_trade * self.scale_factor
+        if real_amt < 50.0:
+            self.log(f"[ALERTA] Configuración de bot inválida: El monto por operación (${real_amt:.2f} USD) es menor al mínimo requerido de $50.00 USD reales. Omitiendo esta iteración.")
+            return
+
         self.log(f"--- Iniciando iteración de análisis ({self.strategy.upper()}) ---")
         
         # 1. Obtener portafolio actual para ver balance y posiciones
@@ -83,7 +97,8 @@ class TradingBot:
         credit = client_port.get("credit", 0.0)
         positions = client_port.get("positions", [])
         
-        self.log(f"Balance Disponible (Credit): ${credit:.2f} USD")
+        real_credit = credit * self.scale_factor
+        self.log(f"Balance Disponible: ${real_credit:.2f} USD (Virtual: ${credit:.2f})")
         self.log(f"Posiciones Abiertas Totales: {len(positions)}")
 
         # Mapeamos posiciones abiertas por instrumentID para saber qué activos ya poseemos
@@ -125,9 +140,11 @@ class TradingBot:
                         self.log(f"Señal de COMPRA para {symbol} ignorada: Ya existe una posición abierta.")
                     else:
                         if credit < self.amount_per_trade:
-                            self.log(f"Señal de COMPRA para {symbol} fallida: Balance insuficiente (${credit:.2f} < ${self.amount_per_trade:.2f})")
+                            real_req = self.amount_per_trade * self.scale_factor
+                            self.log(f"Señal de COMPRA para {symbol} fallida: Balance insuficiente (${real_credit:.2f} < ${real_req:.2f})")
                         else:
-                            self.log(f"EJECUTANDO COMPRA de ${self.amount_per_trade} USD en {symbol}...")
+                            real_amount = self.amount_per_trade * self.scale_factor
+                            self.log(f"EJECUTANDO COMPRA de ${real_amount:.2f} USD en {symbol} (Virtual: ${self.amount_per_trade:.2f})...")
                             order_res = self.client.create_order(
                                 symbol=symbol,
                                 amount=self.amount_per_trade,
@@ -137,6 +154,7 @@ class TradingBot:
                             self.log(f"Respuesta de orden COMPRA {symbol}: {order_res}")
                             # Actualizar balance local aproximado temporal
                             credit -= self.amount_per_trade
+                            real_credit = credit * self.scale_factor
                             
                 elif signal == "SELL":
                     # Cerrar todas las posiciones abiertas de este activo
