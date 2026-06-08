@@ -231,5 +231,5 @@ if __name__ == "__main__":
     with open("bot_activity.log", "w", encoding="utf-8") as f:
         f.write("[INFO] Servidor y Bot inicializados localmente.\n")
         
-    print("Iniciando servidor Flask de control local en http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000, debug=True)
+    print("Iniciando servidor Flask de control local en http://localhost:5001")
+    app.run(host="0.0.0.0", port=5001, debug=True)
