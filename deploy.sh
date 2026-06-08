@@ -61,5 +61,5 @@ EOF
 echo "===================================================="
 echo "[4/4] ¡Despliegue completado con éxito!"
 echo "El bot ahora está corriendo 24/7 en tu VPS."
-echo "Puedes acceder al panel en: http://$HOST:5000"
+echo "Puedes acceder al panel en: http://\$HOST:5001"
 echo "===================================================="
