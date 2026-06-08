@@ -699,3 +699,136 @@ body {
 .symbol-invalid {
     color: var(--color-red) !important;
 }
+
+/* Custom Toast Notification System */
+.toast-container {
+    position: fixed;
+    top: 24px;
+    right: 24px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    z-index: 1000;
+}
+
+.toast {
+    background: rgba(13, 20, 38, 0.85);
+    border: 1px solid var(--panel-border);
+    backdrop-filter: blur(12px);
+    color: var(--text-primary);
+    padding: 16px 20px;
+    border-radius: 12px;
+    font-size: 0.9rem;
+    font-weight: 500;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.4);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    min-width: 300px;
+    max-width: 450px;
+    animation: slideIn 0.3s ease forwards;
+    transition: all 0.3s ease;
+}
+
+.toast.toast-success {
+    border-left: 4px solid var(--color-green);
+    box-shadow: 0 4px 20px rgba(0, 230, 118, 0.1);
+}
+
+.toast.toast-error {
+    border-left: 4px solid var(--color-red);
+    box-shadow: 0 4px 20px rgba(255, 23, 68, 0.1);
+}
+
+.toast.toast-info {
+    border-left: 4px solid var(--color-blue);
+    box-shadow: 0 4px 20px rgba(0, 229, 255, 0.1);
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(120%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+.toast.toast-fadeout {
+    transform: translateX(120%);
+    opacity: 0;
+}
+
+/* Friendly Bot Activity State Card */
+.bot-state-card {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--panel-border);
+    padding: 16px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-top: 10px;
+    margin-bottom: 5px;
+    transition: all 0.3s ease;
+}
+
+.bot-state-icon {
+    font-size: 2rem;
+    color: var(--color-blue);
+    filter: drop-shadow(0 0 6px var(--color-blue-glow));
+}
+
+.bot-state-details {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.bot-state-title {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-weight: 600;
+    letter-spacing: 0.5px;
+}
+
+.bot-state-status {
+    font-size: 0.95rem;
+    font-weight: 500;
+    color: var(--text-primary);
+}
+
+/* Quick Select Chips */
+.quick-chips-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 12px;
+}
+
+.quick-chip {
+    background: rgba(255, 255, 255, 0.03);
+    border: 1px solid var(--panel-border);
+    color: var(--text-secondary);
+    padding: 6px 12px;
+    border-radius: 20px;
+    font-size: 0.8rem;
+    font-weight: 500;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.quick-chip:hover {
+    background: rgba(0, 229, 255, 0.08);
+    border-color: rgba(0, 229, 255, 0.2);
+    color: var(--color-blue);
+    transform: translateY(-1px);
+}
+
+.quick-chip:active {
+    transform: translateY(0);
+}
+

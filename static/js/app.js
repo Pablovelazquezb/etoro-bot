@@ -61,6 +61,36 @@ document.addEventListener('DOMContentLoaded', () => {
     const btnRefreshLogs = document.getElementById('btn-refresh-logs');
 
     /* ==========================================================================
+       0. SISTEMA DE TOAST NOTIFICATIONS (Alertas Visuales Premium)
+       ========================================================================== */
+    function showToast(message, type = 'info') {
+        const toastContainer = document.getElementById('toast-container');
+        if (!toastContainer) return;
+        
+        const toast = document.createElement('div');
+        toast.className = `toast toast-${type}`;
+        
+        let icon = 'info';
+        if (type === 'success') icon = 'check_circle';
+        if (type === 'error') icon = 'error_outline';
+        
+        toast.innerHTML = `
+            <span class="material-icons-round">${icon}</span>
+            <span>${message}</span>
+        `;
+        
+        toastContainer.appendChild(toast);
+        
+        // Auto remover
+        setTimeout(() => {
+            toast.classList.add('toast-fadeout');
+            setTimeout(() => {
+                toast.remove();
+            }, 300);
+        }, 4500);
+    }
+
+    /* ==========================================================================
        1. SISTEMA DE NAVEGACIÓN Y PESTAÑAS (TABS)
        ========================================================================== */
     function switchTab(activeNav, title, subtitle, showBotConfig = true) {
@@ -94,7 +124,6 @@ document.addEventListener('DOMContentLoaded', () => {
         navConfig.addEventListener('click', (e) => {
             e.preventDefault();
             switchTab(navConfig, "Ajustes del Algoritmo", "Configure los parámetros operativos de la estrategia del bot.", true);
-            // Hacer scroll hasta el formulario
             formBotSettings.scrollIntoView({ behavior: 'smooth' });
         });
     }
@@ -113,6 +142,20 @@ document.addEventListener('DOMContentLoaded', () => {
             logsOutput.scrollIntoView({ behavior: 'smooth' });
         });
     }
+
+    /* ==========================================================================
+       1.5 CHIPS DE SELECCIÓN RÁPIDA (UX PREMIUM)
+       ========================================================================== */
+    document.querySelectorAll('.quick-chip').forEach(chip => {
+        chip.addEventListener('click', () => {
+            const symbol = chip.getAttribute('data-symbol');
+            manualSymbol.value = symbol;
+            
+            // Simular verificación del símbolo seleccionado
+            btnVerifySymbol.click();
+            showToast(`Activo ${symbol} seleccionado automáticamente.`, 'info');
+        });
+    });
 
     /* ==========================================================================
        2. CARGAR Y ACTUALIZAR CONFIGURACIÓN DEL BOT
@@ -145,10 +188,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error("Error cargando estado del bot:", err);
+            showToast("No se pudo conectar con el servidor local. ¿Está corriendo server.py?", "error");
         }
     }
 
     function updateBotStatusUI(running) {
+        const friendlyStatus = document.getElementById('bot-friendly-status');
+        
         if (running) {
             botStatusIndicator.classList.remove('inactive');
             botStatusIndicator.classList.add('active');
@@ -156,6 +202,7 @@ document.addEventListener('DOMContentLoaded', () => {
             btnToggleBot.innerHTML = `<span class="material-icons-round">stop</span><span>Detener Bot</span>`;
             btnToggleBot.classList.remove('btn-primary');
             btnToggleBot.classList.add('btn-primary', 'btn-stop');
+            if (friendlyStatus) friendlyStatus.textContent = "Iniciando análisis del mercado...";
         } else {
             botStatusIndicator.classList.remove('active');
             botStatusIndicator.classList.add('inactive');
@@ -163,21 +210,27 @@ document.addEventListener('DOMContentLoaded', () => {
             btnToggleBot.innerHTML = `<span class="material-icons-round">play_arrow</span><span>Iniciar Bot</span>`;
             btnToggleBot.classList.remove('btn-stop');
             btnToggleBot.classList.add('btn-primary');
+            if (friendlyStatus) friendlyStatus.textContent = "Bot inactivo. Esperando inicio...";
         }
     }
 
     // Toggle Bot Button Click
     btnToggleBot.addEventListener('click', async () => {
         const endpoint = botRunning ? '/api/bot/stop' : '/api/bot/start';
+        const actionText = botRunning ? "deteniendo" : "iniciando";
+        
+        showToast(`Procesando solicitud: ${actionText} bot...`, 'info');
+        
         try {
             const res = await requestsPost(endpoint);
             if (res.success) {
                 botRunning = res.is_running;
                 updateBotStatusUI(botRunning);
+                showToast(botRunning ? "¡El Bot se ha iniciado correctamente!" : "El Bot se ha detenido.", botRunning ? 'success' : 'info');
                 fetchLogs();
             }
         } catch (err) {
-            alert("Error al cambiar el estado del bot: " + err.message);
+            showToast("Fallo al cambiar el estado del bot: " + err.message, "error");
         }
     });
 
@@ -196,11 +249,11 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             const res = await requestsPost('/api/status/update', payload);
             if (res.success) {
-                alert("Configuración guardada exitosamente.");
+                showToast("¡Configuración guardada y aplicada con éxito!", "success");
                 fetchLogs();
             }
         } catch (err) {
-            alert("Error al guardar configuración: " + err.message);
+            showToast("Error al guardar la configuración: " + err.message, "error");
         }
     });
 
@@ -210,13 +263,12 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchPortfolio() {
         try {
             const res = await fetch('/api/portfolio');
-            if (!res.ok) throw new Error("Fallo de red al consultar portafolio");
+            if (!res.ok) throw new Error("Fallo al conectar con eToro");
             const data = await res.json();
 
             // Actualizar métricas generales
             const credit = data.credit || 0.0;
             const equity = data.equity || credit;
-            const pnl = equity - credit; // Si no hay posiciones, PnL es 0
             
             // Calcular PnL neto de las posiciones
             let totalPnl = 0.0;
@@ -258,10 +310,11 @@ document.addEventListener('DOMContentLoaded', () => {
 
         } catch (err) {
             console.error("Error al obtener portafolio:", err);
-            // Mostrar mensaje de error en la tabla
             tablePositionsBody.innerHTML = `
                 <tr class="table-empty">
-                    <td colspan="8" style="color: var(--color-red);">Error al conectar con la API de eToro. Verifica tus credenciales.</td>
+                    <td colspan="8" style="color: var(--color-red); font-weight: 500;">
+                        No se pudo conectar a eToro. Verifica tu conexión a internet o tus credenciales en el archivo .env
+                    </td>
                 </tr>
             `;
         }
@@ -301,7 +354,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div style="font-size: 0.75rem;">${pnlPrefix}${pos.pnlPercent.toFixed(2)}%</div>
                 </td>
                 <td>
-                    <button class="btn btn-danger btn-close-pos" data-pos-id="${pos.positionID}" data-inst-id="${pos.instrumentID}">
+                    <button class="btn btn-danger btn-close-pos" data-pos-id="${pos.positionID}" data-inst-id="${pos.instrumentID}" data-symbol="${pos.symbol}">
                         Cerrar
                     </button>
                 </td>
@@ -312,18 +365,20 @@ document.addEventListener('DOMContentLoaded', () => {
                 const button = e.currentTarget;
                 const posId = button.getAttribute('data-pos-id');
                 const instId = button.getAttribute('data-inst-id');
+                const sym = button.getAttribute('data-symbol');
 
-                if (confirm(`¿Estás seguro de que deseas cerrar la posición ID ${posId}?`)) {
+                if (confirm(`¿Estás seguro de que deseas vender y cerrar tu posición de ${sym} (ID: ${posId})?`)) {
                     button.disabled = true;
                     button.textContent = "Cerrando...";
+                    showToast(`Cerrando posición de ${sym}...`, 'info');
                     try {
                         const res = await requestsPost('/api/close', { positionID: posId, instrumentID: instId });
                         if (res.success) {
-                            alert(`Posición ${posId} cerrada correctamente.`);
+                            showToast(`¡Posición de ${sym} cerrada con éxito!`, 'success');
                             fetchPortfolio();
                         }
                     } catch (err) {
-                        alert("Error al cerrar la posición: " + err.message);
+                        showToast(`No se pudo cerrar la posición: ${err.message}`, "error");
                         button.disabled = false;
                         button.textContent = "Cerrar";
                     }
@@ -336,6 +391,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     if (btnRefreshPortfolio) {
         btnRefreshPortfolio.addEventListener('click', () => {
+            showToast("Actualizando portafolio...", 'info');
             fetchPortfolio();
         });
     }
@@ -352,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        symbolVerifyStatus.textContent = "Verificando...";
+        symbolVerifyStatus.textContent = "Verificando en eToro...";
         symbolVerifyStatus.className = "input-helper";
 
         try {
@@ -360,15 +416,18 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             
             if (data.instrumentId) {
-                symbolVerifyStatus.textContent = `Instrumento VÁLIDO. ID eToro: ${data.instrumentId}`;
+                symbolVerifyStatus.textContent = `Disponible en eToro. ID: ${data.instrumentId}`;
                 symbolVerifyStatus.className = "input-helper symbol-valid";
+                showToast(`Activo ${symbol} verificado correctamente. Listo para operar.`, 'success');
             } else {
-                symbolVerifyStatus.textContent = `Símbolo no encontrado en eToro.`;
+                symbolVerifyStatus.textContent = `Activo no encontrado o no disponible en eToro.`;
                 symbolVerifyStatus.className = "input-helper symbol-invalid";
+                showToast(`El símbolo ${symbol} no está disponible en la API de eToro.`, 'error');
             }
         } catch (err) {
             symbolVerifyStatus.textContent = `No se pudo encontrar el símbolo.`;
             symbolVerifyStatus.className = "input-helper symbol-invalid";
+            showToast(`Error de conexión al buscar el activo ${symbol}.`, 'error');
         }
     });
 
@@ -380,11 +439,13 @@ document.addEventListener('DOMContentLoaded', () => {
         const amount = parseFloat(manualAmount.value);
         const leverage = parseInt(manualLeverage.value);
         const transaction = manualDirection.value;
+        const dirText = transaction === 'buy' ? 'COMPRA' : 'VENTA CORTA';
 
-        if (confirm(`¿Deseas enviar una orden de mercado para ${transaction.toUpperCase()} ${symbol} por $${amount} USD a apalancamiento ${leverage}x?`)) {
+        if (confirm(`¿Deseas enviar una orden de mercado real para ${dirText} ${symbol} por un valor de $${amount} USD?`)) {
             const btnSubmit = document.getElementById('btn-submit-manual-trade');
             btnSubmit.disabled = true;
             btnSubmit.textContent = "Enviando Orden...";
+            showToast(`Colocando orden en mercado: ${dirText} ${symbol}...`, 'info');
 
             try {
                 const res = await requestsPost('/api/trade', {
@@ -395,14 +456,19 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
 
                 if (res.success) {
-                    alert(`Orden colocada con éxito. ID Orden: ${res.result.orderId}`);
+                    showToast(`¡Orden de ${dirText} ${symbol} ejecutada con éxito!`, 'success');
                     formManualTrade.reset();
-                    symbolVerifyStatus.textContent = "Ingresa un símbolo para verificar su InstrumentID.";
+                    symbolVerifyStatus.textContent = "Selecciona un activo o ingresa su símbolo.";
                     symbolVerifyStatus.className = "input-helper";
                     fetchPortfolio();
                 }
             } catch (err) {
-                alert("Error al colocar orden manual: " + err.message);
+                // Traducir mensajes técnicos del servidor a descripciones amigables
+                let friendlyMsg = err.message;
+                if (friendlyMsg.includes("validation errors")) {
+                    friendlyMsg = "Error de validación: Asegúrate de que el monto o parámetros sean válidos.";
+                }
+                showToast(`Fallo al ejecutar la orden: ${friendlyMsg}`, "error");
             } finally {
                 btnSubmit.disabled = false;
                 btnSubmit.innerHTML = `<span class="material-icons-round">shopping_cart</span><span>Ejecutar Orden en Mercado</span>`;
@@ -411,7 +477,7 @@ document.addEventListener('DOMContentLoaded', () => {
     });
 
     /* ==========================================================================
-       5. TERMINAL DE LOGS EN VIVO
+       5. TERMINAL DE LOGS Y TRADUCCIÓN A ESTADOS AMIGABLES (UX)
        ========================================================================== */
     async function fetchLogs() {
         try {
@@ -419,21 +485,90 @@ document.addEventListener('DOMContentLoaded', () => {
             const data = await res.json();
             
             if (data.logs) {
-                // Actualizar log en pantalla
                 logsOutput.textContent = data.logs;
-                
-                // Hacer auto-scroll hacia abajo si el usuario no ha scrolleado arriba
                 logsOutput.scrollTop = logsOutput.scrollHeight;
-            } else if (data.error) {
-                logsOutput.textContent = `Error del sistema: ${data.error}`;
+                
+                // Traducir las líneas de logs de depuración técnicas a estados legibles para usuarios no técnicos
+                parseLogsForFriendlyStatus(data.logs);
             }
         } catch (err) {
-            logsOutput.textContent = `Error de conexión con la terminal de logs.`;
+            console.error("Error al leer logs:", err);
         }
+    }
+
+    function parseLogsForFriendlyStatus(logsText) {
+        const friendlyStatusEl = document.getElementById('bot-friendly-status');
+        if (!friendlyStatusEl) return;
+        
+        if (!botRunning) {
+            friendlyStatusEl.textContent = "Bot inactivo. Esperando inicio...";
+            return;
+        }
+        
+        if (!logsText) {
+            friendlyStatusEl.textContent = "Ejecutando algoritmo de análisis...";
+            return;
+        }
+        
+        const lines = logsText.trim().split('\n').reverse();
+        
+        // Buscar líneas clave en orden de prioridad de lo más reciente a lo antiguo
+        for (const line of lines) {
+            if (line.includes('EJECUTANDO COMPRA')) {
+                const match = line.match(/EJECUTANDO COMPRA de \$([0-9.]+) USD en ([A-Z]+)/);
+                if (match) {
+                    friendlyStatusEl.innerHTML = `<strong style="color: var(--color-green)">Comprando ${match[2]} ($${match[1]} USD)</strong>`;
+                    return;
+                }
+                friendlyStatusEl.textContent = "Colocando orden de compra en mercado...";
+                return;
+            }
+            if (line.includes('Cerrando posición')) {
+                const match = line.match(/Cerrando posición ID ([0-9]+) de ([A-Z]+)/);
+                if (match) {
+                    friendlyStatusEl.innerHTML = `<strong style="color: var(--color-red)">Cerrando y vendiendo posición de ${match[2]}</strong>`;
+                    return;
+                }
+                friendlyStatusEl.textContent = "Cerrando posición abierta...";
+                return;
+            }
+            if (line.includes('Señal:')) {
+                const match = line.match(/Precio actual ([A-Z0-9]+): \$([0-9.,]+) \| Señal: ([A-Z]+) \| Motivo: (.+)/);
+                if (match) {
+                    const asset = match[1];
+                    const price = match[2];
+                    const signal = match[3];
+                    const reason = match[4];
+                    
+                    let signalColoredText = signal;
+                    if (signal === 'BUY') {
+                        signalColoredText = `<span style="color: var(--color-green); font-weight:700;">COMPRAR (BUY)</span>`;
+                    } else if (signal === 'SELL') {
+                        signalColoredText = `<span style="color: var(--color-red); font-weight:700;">VENDER (SELL)</span>`;
+                    } else {
+                        signalColoredText = `MANTENER (HOLD)`;
+                    }
+                    
+                    friendlyStatusEl.innerHTML = `Analizado <strong>${asset}</strong> ($${price}) | Decisión: <strong>${signalColoredText}</strong>`;
+                    return;
+                }
+            }
+            if (line.includes('Iniciando iteración')) {
+                friendlyStatusEl.textContent = "Analizando lista de activos configurados...";
+                return;
+            }
+            if (line.includes('ERROR') || line.includes('Error')) {
+                friendlyStatusEl.innerHTML = `<span style="color: var(--color-red)">Ocurrió un error en el último análisis.</span>`;
+                return;
+            }
+        }
+        
+        friendlyStatusEl.textContent = "Algoritmo activo. Analizando precios en tiempo real...";
     }
 
     if (btnRefreshLogs) {
         btnRefreshLogs.addEventListener('click', () => {
+            showToast("Actualizando terminal...", 'info');
             fetchLogs();
         });
     }

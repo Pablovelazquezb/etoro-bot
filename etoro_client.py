@@ -163,7 +163,6 @@ class EToroClient:
         payload = {
             "action": "open",
             "transaction": transaction,
-            "symbol": symbol,
             "instrumentId": inst_id,
             "orderType": "mkt",
             "leverage": leverage,

@@ -12,6 +12,9 @@
 </head>
 <body>
     <div class="app-container">
+        <!-- Toast container para alertas visuales premium -->
+        <div id="toast-container" class="toast-container"></div>
+
         <!-- Sidebar Navigation -->
         <aside class="sidebar">
             <div class="sidebar-header">
@@ -161,6 +164,15 @@
                             </div>
                         </div>
 
+                        <!-- Widget de estado amigable para no técnicos -->
+                        <div class="bot-state-card" id="bot-state-widget">
+                            <span class="material-icons-round bot-state-icon">analytics</span>
+                            <div class="bot-state-details">
+                                <span class="bot-state-title">Actividad Reciente del Algoritmo</span>
+                                <span class="bot-state-status" id="bot-friendly-status">Bot inactivo. Esperando inicio...</span>
+                            </div>
+                        </div>
+
                         <form id="form-bot-settings" class="settings-form">
                             <div class="form-row">
                                 <div class="form-group">
@@ -228,13 +240,24 @@
 
                         <form id="form-manual-trade" class="settings-form">
                             <div class="form-group">
-                                <label for="manual-symbol">Símbolo del Activo</label>
+                                <label for="manual-symbol">Selecciona un activo o ingresa su símbolo</label>
+                                
+                                <!-- Botones de acceso rápido para activos comunes (UX Premium) -->
+                                <div class="quick-chips-group">
+                                    <button type="button" class="quick-chip" data-symbol="BTC">Bitcoin (BTC)</button>
+                                    <button type="button" class="quick-chip" data-symbol="ETH">Ethereum (ETH)</button>
+                                    <button type="button" class="quick-chip" data-symbol="AAPL">Apple (AAPL)</button>
+                                    <button type="button" class="quick-chip" data-symbol="TSLA">Tesla (TSLA)</button>
+                                    <button type="button" class="quick-chip" data-symbol="GLD">Oro (GLD)</button>
+                                </div>
+
                                 <div class="search-input-group">
                                     <input type="text" id="manual-symbol" class="form-input" placeholder="Ej. BTC, AAPL, ETH" required>
                                     <button type="button" class="btn btn-secondary" id="btn-verify-symbol">Verificar</button>
                                 </div>
                                 <span class="input-helper" id="symbol-verify-status">Ingresa un símbolo para verificar su InstrumentID.</span>
                             </div>
+
 
                             <div class="form-row">
                                 <div class="form-group">
